@@ -407,6 +407,53 @@ header::after {
   font-size: 10.5px; color: var(--muted2); letter-spacing: 0.06em;
 }
 .w-footer span { color: rgba(45,212,191,0.3); }
+
+.w-username-wrap {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(45,212,191,0.05);
+  border: 1px solid rgba(45,212,191,0.2);
+  border-radius: 14px; padding: 10px 10px 10px 14px;
+  width: 100%; max-width: 340px;
+  transition: border-color .2s, box-shadow .2s;
+  margin-top: 4px;
+}
+.w-username-wrap:focus-within {
+  border-color: rgba(45,212,191,0.55);
+  background: rgba(45,212,191,0.08);
+  box-shadow: 0 0 24px rgba(45,212,191,0.12);
+}
+.w-username-go {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: rgba(45,212,191,0.15);
+  border: 1px solid rgba(45,212,191,0.3);
+  color: var(--teal); cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, transform .15s;
+}
+.w-username-go:hover { background: rgba(45,212,191,0.3); transform: translateX(1px); }
+.w-username-go svg { width: 15px; height: 15px; }
+.w-username-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(45,212,191,0.12);
+  overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; transition: all .3s;
+  border: 1.5px solid rgba(45,212,191,0.2);
+}
+.w-username-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.w-username-at { color: var(--teal); font-weight: 700; font-size: 14px; flex-shrink: 0; }
+#w-username-input {
+  background: none; border: none; outline: none;
+  color: var(--fg); font-family: 'Syne', sans-serif;
+  font-size: 13.5px; width: 100%;
+}
+#w-username-input::placeholder { color: rgba(45,212,191,0.25); }
+.w-username-badge {
+  font-size: 10px; color: rgba(45,212,191,0.5);
+  flex-shrink: 0; letter-spacing: 0.04em;
+  transition: color .3s;
+}
+.w-username-badge.loaded { color: var(--teal); }
 </style>
 </head>
 <body>
@@ -438,10 +485,18 @@ header::after {
     <div class="w-chip" onclick="startWith('Who are you, Siggy? Tell me about yourself')">🐱 Who are you, Siggy?</div>
   </div>
 
-  <button class="w-btn" onclick="startChat()">
-    Start chatting
-    <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-  </button>
+  <!-- X Username = Start Chat -->
+  <div class="w-username-wrap" id="w-username-wrap">
+    <div class="w-username-avatar" id="w-av-preview">👤</div>
+    <span class="w-username-at">@</span>
+    <input id="w-username-input" type="text" placeholder="enter X username to start" maxlength="15"
+      oninput="handleUsernameInput(this.value)"
+      onkeydown="if(event.key==='Enter') startChatWithUsername()"
+      autocomplete="off" spellcheck="false">
+    <button class="w-username-go" id="w-username-go" onclick="startChatWithUsername()" title="Start chatting">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
 
   <p class="w-footer">ritual.net &nbsp;·&nbsp; <span>Siggy AI v2</span></p>
 </div>
@@ -529,6 +584,11 @@ const sessionId = 'sess_' + Math.random().toString(36).slice(2, 12);
 let busy = false;
 
 // ── Welcome ──
+function startChatWithUsername() {
+  const val = (document.getElementById('w-username-input').value || '').trim();
+  if (val) loadXAvatar(val);
+  startChat();
+}
 function startChat() {
   document.getElementById('welcome').classList.add('out');
   setTimeout(() => addMsg('siggy', "✨ Hey, wanderer! I'm **Siggy** — the spirit woven into ritual.net since day one.\n\nI can **search the web**, check what's happening in the **ritual community on X**, and answer anything about this project. What brings you here today? 🌙"), 450);
@@ -629,6 +689,36 @@ function checkLocalAnswer(text) {
 
 // ── X Avatar ──
 let currentUserAvatar = '👤';
+let usernameDebounce = null;
+
+function handleUsernameInput(val) {
+  const clean = val.replace(/[^A-Za-z0-9_]/g, '').slice(0, 15);
+  const input = document.getElementById('w-username-input');
+  if (input.value !== clean) input.value = clean;
+
+  const preview = document.getElementById('w-av-preview');
+
+  if (!clean) {
+    preview.innerHTML = '👤';
+    currentUserAvatar = '👤';
+    return;
+  }
+
+  clearTimeout(usernameDebounce);
+  usernameDebounce = setTimeout(() => {
+    const url = `https://unavatar.io/twitter/${clean}`;
+    const img = new Image();
+    img.onload = () => {
+      preview.innerHTML = `<img src="${url}" alt="@${clean}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      currentUserAvatar = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="@${clean}">`;
+    };
+    img.onerror = () => {
+      preview.innerHTML = '👤';
+      currentUserAvatar = '👤';
+    };
+    img.src = url;
+  }, 600);
+}
 
 function extractUsername(text) {
   const match = text.match(/@([A-Za-z0-9_]{1,15})/);
